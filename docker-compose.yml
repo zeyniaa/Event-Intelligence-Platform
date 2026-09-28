@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: eip-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - eip-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: eip-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - eip-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eip-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/yorindo-ems
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - eip-network
+
+  frontend-analytics:
+    build:
+      context: ./frontend-analytics
+      dockerfile: Dockerfile
+    container_name: eip-frontend-analytics
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - eip-network
+
+  frontend-portal:
+    build:
+      context: ./frontend-portal
+      dockerfile: Dockerfile
+    container_name: eip-frontend-portal
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    depends_on:
+      - backend
+    networks:
+      - eip-network
+
+volumes:
+  mongo_data:
+
+networks:
+  eip-network:
+    driver: bridge
